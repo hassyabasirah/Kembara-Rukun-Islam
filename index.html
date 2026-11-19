@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PENGEMBARA ILMU: MISI RUKUN ISLAM</title>
+<style>
+:root{--ink:#18324b;--cream:#fff8df;--blue:#68c9f2;--gold:#ffd34e;--green:#62c879;--red:#f36b68}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(#b8edff,#fff4cf);font-family:system-ui,Arial,sans-serif;color:var(--ink);display:flex;justify-content:center;min-height:100vh;padding:14px}
+.game-wrap{width:min(100%,1000px)}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 10px}
+h1{font-size:clamp(19px,4vw,30px);margin:0;text-shadow:2px 2px #fff}
+.sub{font-size:13px;font-weight:700}
+.hud{display:flex;gap:8px;flex-wrap:wrap}
+.pill{background:#fff;border:3px solid var(--ink);border-radius:12px;padding:7px 12px;font-weight:900;box-shadow:3px 3px 0 var(--ink)}
+.stagebox{position:relative;border:5px solid var(--ink);border-radius:16px;overflow:hidden;background:#8ddcf5;box-shadow:0 8px 0 #29445b}
+canvas{display:block;width:100%;height:auto;image-rendering:pixelated;touch-action:none}
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#102b45c9;padding:18px}
+.panel{width:min(540px,100%);background:var(--cream);border:4px solid var(--ink);border-radius:18px;padding:22px;text-align:center;box-shadow:7px 7px 0 #102b45}
+.panel h2{margin:0 0 8px;font-size:clamp(22px,4vw,30px)}
+.panel p{line-height:1.5}
+button{font:inherit;font-weight:900;border:3px solid var(--ink);border-radius:12px;background:var(--gold);color:var(--ink);padding:10px 18px;cursor:pointer;box-shadow:3px 3px 0 var(--ink)}
+button:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
+button:focus-visible{outline:4px solid white;outline-offset:3px}
+.answers{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:16px}
+.answers button{background:#fff;text-align:left}
+.answers button:hover{background:#dff6ff}
+.feedback{font-weight:900;min-height:28px;margin-top:12px}
+.hidden{display:none!important}
+.controls{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+.pad{display:flex;gap:8px}
+.pad button{width:58px;height:52px;padding:0;font-size:23px;touch-action:none}
+.jump{min-width:115px;background:#8ee6a0}
+.hint{font-size:12px;text-align:center;margin:10px 0 0;font-weight:700}
+@media(max-width:560px){body{padding:7px}.answers{grid-template-columns:1fr}.pill{padding:5px 8px;font-size:13px}.panel{padding:15px}.controls{justify-content:center}}
+</style>
+</head>
+<body>
+<div class="game-wrap">
+<header>
+ <div><h1>⭐ PENGEMBARA ILMU</h1><div class="sub">MISI RUKUN ISLAM · Permainan platformer Pendidikan Islam</div></div>
+ <div class="hud">
+  <div class="pill">❤️ Nyawa: <span id="lives">3</span></div>
+  <div class="pill">⭐ Skor: <span id="score">0</span></div>
+  <div class="pill">📍 Peringkat: <span id="level">1/3</span></div>
+ </div>
+</header>
+<div class="stagebox">
+ <canvas id="game" width="960" height="540" aria-label="Permainan platformer Pengembara Ilmu"></canvas>
+ <div class="overlay" id="startScreen">
+  <div class="panel">
+   <h2>🌟 Pengembaraan Bermula!</h2>
+   <p>Bantu pencari ilmu merentasi tiga peringkat, kutip buku dan bintang, elakkan halangan dan jawab soalan di Gerbang Ilmu untuk membuka laluan.</p>
+   <p><b>Kawalan:</b> ← → atau A/D untuk bergerak, ↑ / W / Space untuk melompat.</p>
+   <button id="startBtn">MULA</button>
+  </div>
+ </div>
+ <div class="overlay hidden" id="questionScreen">
+  <div class="panel">
+   <div class="sub" id="gateLabel">GERBANG ILMU · PERINGKAT 1</div>
+   <h2 id="questionText">Soalan</h2>
+   <div class="answers" id="answerButtons"></div>
+   <div class="feedback" id="feedback" aria-live="polite"></div>
+  </div>
+ </div>
+ <div class="overlay hidden" id="endScreen">
+  <div class="panel">
+   <h2 id="endTitle">Tahniah!</h2>
+   <p id="endMessage"></p>
+   <p><b>Skor akhir: <span id="finalScore">0</span></b></p>
+   <button id="restartBtn">MAIN SEMULA</button>
+  </div>
+ </div>
+</div>
+<div class="controls">
+ <div class="pad">
+  <button id="leftBtn" aria-label="Kiri">◀</button>
+  <button id="rightBtn" aria-label="Kanan">▶</button>
+ </div>
+ <button class="jump" id="jumpBtn">⬆ LOMPAT</button>
+</div>
+<p class="hint">Petua: Kutip 📘 buku dan ⭐ bintang untuk menambah skor. Sentuh butang pada skrin jika bermain menggunakan telefon atau tablet.</p>
+</div>
+<script>
+(() => {
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const W=canvas.width,H=canvas.height;
+const $=id=>document.getElementById(id);
+const questions=[
+ {q:"Berapakah bilangan Rukun Islam?",a:["Tiga","Lima","Enam","Tujuh"],c:1},
+ {q:"Apakah Rukun Islam yang pertama?",a:["Mengucap Dua Kalimah Syahadah","Menunaikan zakat","Berpuasa","Menunaikan haji"],c:0},
+ {q:"Siapakah nabi dan rasul terakhir?",a:["Nabi Musa AS","Nabi Isa AS","Nabi Muhammad SAW","Nabi Ibrahim AS"],c:2},
+ {q:"Berapakah solat fardu yang ditunaikan setiap hari?",a:["Tiga waktu","Empat waktu","Lima waktu","Enam waktu"],c:2},
+ {q:"Apakah antara tempat yang boleh digunakan untuk solat?",a:["Sejadah","Dapur","Padang permainan sahaja","Kedai"],c:0},
+ {q:"Apakah maksud zakat secara ringkas?",a:["Memberi sebahagian harta kepada golongan yang berhak","Menyimpan semua harta","Membeli hadiah","Bersedekah hanya kepada keluarga"],c:0},
+ {q:"Dalam bulan apakah umat Islam berpuasa wajib?",a:["Muharam","Ramadan","Syawal","Rejab"],c:1},
+ {q:"Bilakah waktu berbuka puasa?",a:["Sebelum Subuh","Tengah hari","Selepas masuk waktu Maghrib","Selepas Isyak"],c:2},
+ {q:"Di manakah umat Islam menunaikan ibadah haji?",a:["Madinah sahaja","Makkah","Jerusalem","Brunei"],c:1},
+ {q:"Siapakah yang diwajibkan menunaikan haji?",a:["Semua kanak-kanak","Umat Islam yang berkemampuan","Semua orang tanpa syarat","Orang yang sedang sakit tenat"],c:1}
+];
+const levels=[
+ {name:"Taman Permulaan",length:2100,ground:455,platforms:[[250,375,125],[485,325,125],[730,385,120],[1010,330,135],[1280,375,130],[1580,315,140]],hazards:[430,900,1200,1510,1810],items:[[190,410],[300,330],[540,280],[780,340],[1060,285],[1330,330],[1630,270],[1870,410]],speed:3.7},
+ {name:"Lembah Cabaran",length:2450,ground:455,platforms:[[180,360,120],[400,300,120],[660,365,120],[900,285,125],[1160,350,120],[1400,285,130],[1680,350,120],[1950,290,130],[2200,360,110]],hazards:[350,600,830,1080,1350,1620,1880,2140],items:[[220,315],[450,255],[700,320],[950,240],[1200,305],[1450,240],[1730,305],[2000,245],[2250,315]],speed:4.4},
+ {name:"Puncak Ilmu",length:2800,ground:455,platforms:[[160,355,110],[370,285,110],[590,350,110],[820,265,110],[1050,340,110],[1280,255,110],[1510,335,110],[1750,250,110],[1990,330,110],[2230,245,110],[2480,350,120]],hazards:[300,520,760,990,1220,1450,1690,1920,2160,2400,2630],items:[[190,310],[410,240],[630,305],[860,220],[1090,295],[1320,210],[1550,290],[1790,205],[2030,285],[2270,200],[2520,305],[2700,410]],speed:5.0}
+];
+let state="start",levelIndex=0,score=0,lives=3,camera=0,frame=0,questionIndex=0,gateQuestion=null;
+let player={x:60,y:390,vx:0,vy:0,w:30,h:42,onGround:false,inv:0};
+let keys={left:false,right:false},items=[],hazards=[],platforms=[],gateX=0;
+function updateHUD(){$('lives').textContent=lives;$('score').textContent=score;$('level').textContent=(levelIndex+1)+"/3"}
+function loadLevel(i){
+ levelIndex=i;const l=levels[i];camera=0;player.x=55;player.y=390;player.vx=0;player.vy=0;player.inv=45;
+ platforms=l.platforms.map(p=>({x:p[0],y:p[1],w:p[2],h:18}));
+ hazards=l.hazards.map(x=>({x,y:l.ground-22,w:34,h:22}));
+ items=l.items.map((p,n)=>({x:p[0],y:p[1],taken:false,type:n%3===0?"book":"star"}));
+ gateX=l.length-100;updateHUD();
+}
+function rect(x,y,w,h,color){ctx.fillStyle=color;ctx.fillRect(Math.round(x),Math.round(y),w,h)}
+function draw(){
+ const l=levels[levelIndex];ctx.clearRect(0,0,W,H);
+ // sky and distant scenery
+ let grad=ctx.createLinearGradient(0,0,0,H);grad.addColorStop(0,"#70d5fa");grad.addColorStop(1,"#d7f6ff");ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
+ ctx.fillStyle="#fff";for(let i=0;i<6;i++){let x=((i*230-camera*.22)%(W+150)+W+150)%(W+150)-80;ctx.beginPath();ctx.arc(x,95+i%2*48,25,0,Math.PI*2);ctx.arc(x+28,88+i%2*48,32,0,Math.PI*2);ctx.arc(x+58,98+i%2*48,22,0,Math.PI*2);ctx.fill()}
+ // hills
+ for(let i=0;i<7;i++){let x=((i*190-camera*.4)%(W+220)+W+220)%(W+220)-100;ctx.fillStyle=i%2?"#86d68a":"#65c77e";ctx.beginPath();ctx.arc(x,460,115,Math.PI,0);ctx.fill()}
+ rect(0,l.ground,W,H-l.ground,"#5fc66f");rect(0,l.ground,W,12,"#368d55");
+ for(let x=-(camera%48);x<W;x+=48){rect(x,l.ground+25,25,5,"#4eaa5d");rect(x+18,l.ground+52,20,5,"#4eaa5d")}
+ // platforms
+ platforms.forEach(p=>{let x=p.x-camera;rect(x,p.y,p.w,p.h,"#9a633d");rect(x,p.y,p.w,7,"#50bd65");for(let k=8;k<p.w;k+=28)rect(x+k,p.y+10,4,4,"#d99a58")});
+ // hazards
+ hazards.forEach(h=>{let x=h.x-camera;rect(x,h.y+7,h.w,h.h-7,"#e94f52");ctx.fillStyle="#fff";ctx.beginPath();ctx.moveTo(x,h.y+9);ctx.lineTo(x+8,h.y-8);ctx.lineTo(x+17,h.y+9);ctx.lineTo(x+25,h.y-8);ctx.lineTo(x+34,h.y+9);ctx.fill()});
+ // collectibles
+ items.forEach(it=>{if(it.taken)return;let x=it.x-camera;ctx.font="25px sans-serif";ctx.textAlign="center";ctx.fillText(it.type==="book"?"📘":"⭐",x,it.y+8)});
+ // gate
+ let gx=gateX-camera;rect(gx, l.ground-112,58,112,"#8051b8");rect(gx+8,l.ground-104,42,104,"#f7d56a");rect(gx+17,l.ground-94,24,94,"#a66bd0");ctx.fillStyle="#fff";ctx.font="bold 15px sans-serif";ctx.textAlign="center";ctx.fillText("?",gx+29,l.ground-55);
+ // player
+ let px=player.x-camera;
+ if(player.inv%8<5){rect(px+5,player.y,20,13,"#f2c49b");rect(px+3,player.y+12,24,19,"#2468b2");rect(px+4,player.y+29,9,13,"#563c2f");rect(px+18,player.y+29,9,13,"#563c2f");rect(px+5,player.y-3,20,6,"#f4d34f");rect(px+20,player.y+5,4,4,"#18324b")}
+ ctx.fillStyle="#18324b";ctx.font="bold 15px sans-serif";ctx.textAlign="left";ctx.fillText("PERINGKAT "+(levelIndex+1)+": "+l.name,18,28);
+}
+function move(){
+ if(state!=="playing")return;
+ const l=levels[levelIndex];frame++;
+ player.vx=(keys.right?l.speed:0)-(keys.left?l.speed:0);
+ player.x=Math.max(0,Math.min(l.length-25,player.x+player.vx));
+ player.vy+=.58;player.y+=player.vy;player.onGround=false;
+ if(player.y+player.h>=l.ground){player.y=l.ground-player.h;player.vy=0;player.onGround=true}
+ platforms.forEach(p=>{if(player.x+player.w>p.x&&player.x<p.x+p.w&&player.y+player.h>=p.y&&player.y+player.h<=p.y+22&&player.vy>=0){player.y=p.y-player.h;player.vy=0;player.onGround=true}});
+ if(player.inv>0)player.inv--;
+ // collect
+ items.forEach(it=>{if(!it.taken&&Math.abs((player.x+player.w/2)-it.x)<28&&Math.abs((player.y+player.h/2)-it.y)<34){it.taken=true;score+=it.type==="book"?5:2;updateHUD()}});
+ // collision hazards
+ if(player.inv<=0&&hazards.some(h=>player.x+player.w>h.x+4&&player.x<h.x+h.w-4&&player.y+player.h>h.y+3)){
+  loseLife();
+ }
+ // fall safety
+ if(player.y>H+50)loseLife();
+ // camera
+ camera=Math.max(0,Math.min(l.length-W,player.x-W*.36));
+ if(player.x+player.w>=gateX && state==="playing"){keys.left=keys.right=false;openGate()}
+}
+function loseLife(){
+ if(player.inv>0)return;
+ lives--;updateHUD();if(lives<=0){finish(false);return}
+ player.x=Math.max(20,player.x-100);player.y=300;player.vy=0;player.inv=100;
+}
+function openGate(){
+ state="question";gateQuestion=questions[questionIndex%questions.length];questionIndex++;
+ $('gateLabel').textContent="GERBANG ILMU · PERINGKAT "+(levelIndex+1);
+ $('questionText').textContent=gateQuestion.q;$('feedback').textContent="";
+ const wrap=$('answerButtons');wrap.innerHTML="";
+ gateQuestion.a.forEach((ans,i)=>{let b=document.createElement("button");b.textContent=String.fromCharCode(65+i)+". "+ans;b.onclick=()=>answer(i);wrap.appendChild(b)});
+ $('questionScreen').classList.remove('hidden');
+}
+function answer(i){
+ const buttons=[...$('answerButtons').querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);
+ if(i===gateQuestion.c){
+  score+=10;updateHUD();$('feedback').textContent="Betul! +10 skor. Gerbang terbuka! ✨";
+  setTimeout(()=>{$('questionScreen').classList.add('hidden');if(levelIndex===2)finish(true);else{loadLevel(levelIndex+1);state="playing"}},900);
+ }else{
+  lives--;updateHUD();$('feedback').textContent="Belum tepat. -1 nyawa. Cuba ingat semula dan teruskan!";
+  setTimeout(()=>{if(lives<=0){$('questionScreen').classList.add('hidden');finish(false)}else{$('questionScreen').classList.add('hidden');player.x=Math.max(20,gateX-230);player.y=300;player.vy=0;player.inv=100;state="playing"}},1200);
+ }
+}
+function finish(won){
+ state="end";$('questionScreen').classList.add('hidden');$('endScreen').classList.remove('hidden');
+ $('endTitle').textContent=won?"🏆 Tahniah, Pengembara Ilmu!":"💪 Jangan Berputus Asa!";
+ $('endMessage').textContent=won?"Awda berjaya menamatkan ketiga-tiga peringkat dan membuka semua Gerbang Ilmu. Terus amalkan Rukun Islam dalam kehidupan seharian.":"Pengembaraan kali ini sudah berakhir, tetapi usaha menuntut ilmu tidak pernah berhenti. Nasihat: pelajari dan amalkan lima Rukun Islam sedikit demi sedikit setiap hari.";
+ $('finalScore').textContent=score;
+}
+function start(){score=0;lives=3;questionIndex=0;loadLevel(0);$('startScreen').classList.add('hidden');$('endScreen').classList.add('hidden');$('questionScreen').classList.add('hidden');state="playing";updateHUD()}
+function loop(){if(state==="playing")move();draw();requestAnimationFrame(loop)}
+function bindHold(id,key){const el=$(id);const down=e=>{e.preventDefault();keys[key]=true},up=e=>{e.preventDefault();keys[key]=false};el.addEventListener('pointerdown',down);el.addEventListener('pointerup',up);el.addEventListener('pointerleave',up);el.addEventListener('pointercancel',up)}
+bindHold('leftBtn','left');bindHold('rightBtn','right');
+$('jumpBtn').addEventListener('pointerdown',e=>{e.preventDefault();if(state==="playing"&&player.onGround){player.vy=-12.5;player.onGround=false}});
+window.addEventListener('keydown',e=>{if(["ArrowLeft","ArrowRight","ArrowUp"," ","a","d","A","D","w","W"].includes(e.key))e.preventDefault();if(e.key==="ArrowLeft"||e.key.toLowerCase()==="a")keys.left=true;if(e.key==="ArrowRight"||e.key.toLowerCase()==="d")keys.right=true;if((e.key==="ArrowUp"||e.key===" "||e.key.toLowerCase()==="w")&&state==="playing"&&player.onGround){player.vy=-12.5;player.onGround=false}});
+window.addEventListener('keyup',e=>{if(e.key==="ArrowLeft"||e.key.toLowerCase()==="a")keys.left=false;if(e.key==="ArrowRight"||e.key.toLowerCase()==="d")keys.right=false});
+$('startBtn').onclick=start;$('restartBtn').onclick=start;
+updateHUD();loadLevel(0);loop();
+})();
+</script>
+</body>
+</html>
